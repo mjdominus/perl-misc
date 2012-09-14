@@ -81,7 +81,7 @@ sub vector {
   return () if $n == 0;
   # Is the first bit 0 or 1?
   # Of the (n choose k) vectors, the first (n-1 choose k) begin with 0
-  # and the remaining (n choose k) begin with 1
+  # and the remaining (n-1 choose k-1) begin with 1
   my $first = 0 + ($p >= choose($n-1, $k));
   my @rest = vector($n-1, $k - $first, $first ? $p - choose($n-1, $k): $p);
   return ($first, @rest);
