@@ -12,7 +12,7 @@ use strict;
 #
 # To demonstrate this, run this file as a program.
 # It has a canned set with six elements.
-# If you run "Subsets.pm 2 3 4 " it will generate all the subsets with
+# If you run "Subsets/BySize.pm 2 3 4 " it will generate all the subsets with
 # 2, 3, or 4 elements.
 #
 # Enjoy!
