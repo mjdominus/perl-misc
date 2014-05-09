@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+# -*- cperl -*-
+
+sub dir_ino_hash {
+    my ($dir) = @_;
+    opendir my($dh), $dir or die "$dir: $!";
+    my %h;
+    for my $file (readdir $dh) {
+      $h{$file} = ino("$dir/$file");
+    }
+    return %h;
+}
+
+sub get_dir_name_from_parent {
+  my ($dir) = @_;
+  my %h = reverse dir_ino_hash("$dir/..");
+  my $ino = ino($dir);
+  return $h{$ino};
+}
+
+sub ino {
+  my ($path) = @_;
+  my @s = lstat $path or die "stat $path: $!";
+  return $s[1];
+}
+
+my $dir = ".";
+until (ino($dir) == 2) {
+  push @path, get_dir_name_from_parent($dir);
+  $dir = "../$dir";
+}
+
+print join("/", "", reverse @path), "\n";
