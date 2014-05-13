@@ -74,8 +74,8 @@ sub next_pos {
   my @o = @{$s[1-$lamp]}; # men on the other side
   my @moves;
   for my $m1 (@m) {
-    for my $m2 (@m, undef) {
-        next if $m2 le $m1;
+    for my $m2 (@m) {
+      next if $m2 le $m1;
       my @nma = remove(\@m, $m1, $m2);
       my @nmb = ( @o, $m1, $m2 );
       my @lr = $lamp == 0 ? ( \@nma, \@nmb ) : ( \@nmb, \@nma );
