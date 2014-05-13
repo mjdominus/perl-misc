@@ -1,0 +1,115 @@
+#!/usr/bin/perl
+#
+# There is a dark night and there is a very old bridge above a
+# canyon. The bridge is very weak and only 2 men can stand on it at
+# the same time. Also they need an oil lamp to see holes in the bridge
+# to avoid falling into the canyon.
+# 
+# Six man try to go through that bridge. They need 1,3,4,6,8,9(first
+# man, second man etc.) minutes to pass the bridge.
+# 
+# What is the fastest way for those six men to pass this bridge?
+#
+# http://math.stackexchange.com/questions/792356/puzzle-about-six-travellers-going-through-bridge-above-canyon-with-an-oil-lamp
+
+# node contains: left side, right side, lamp side, history, total time
+my @q = ([["a" .. "f"], [], 0, [], 0]);
+my %speed = (a => 1,
+	     b => 3,
+	     c => 4,
+	     d => 6,
+	     e => 8,
+	     f => 9);
+
+my $min_speed = 10000;
+while (@q) {
+    my $node = pop @q;
+    my $s = str($node);
+    my $speed = speed($node);
+    $best_time{$s} = $speed
+        if !exists $best_time{$s} or $best_time{$s} > $speed;
+    if (is_finished($node)) {
+        if ($speed <= $min_speed) {
+            print_node($node);
+            $min_speed = $speed;
+        }
+    } else {
+        my @new = next_pos($node);
+        @new = grep speed($_) < $min_speed, @new;
+        for my $node (@new) {
+            my $s = str($node);
+            push @q, $node if ! exists $best_time{$s}
+                           or $best_time{$s} > speed($node);
+        }
+    }
+}
+
+sub is_finished {
+    my ($node) = @_;
+    @{$node->[0]} == 0;
+}
+
+sub speed { $_[0][4] }
+
+sub print_node {
+    my ($n) = @_;
+    my (undef, undef, undef, $hist, $time) = @$n;
+    print "Solution in $time units of time\n";
+    print_hist($hist);
+}
+
+sub print_hist {
+    my ($hist) = @_;
+    return unless defined $hist;
+    my ($last, $rest) = @$hist;
+    print_hist($rest);
+    print "  $last\n";
+}
+
+sub next_pos {
+  my ($node) = @_;
+  my ($lt, $rt, $lamp, $hist, $time) = @$node;
+  my @s = ($lt, $rt);
+  my @m = @{$s[$lamp]};   # men who can carry the lamp
+  my @o = @{$s[1-$lamp]}; # men on the other side
+  my @moves;
+  for my $m1 (@m) {
+    for my $m2 (@m, undef) {
+        next if $m2 le $m1;
+      my @nma = remove(\@m, $m1, $m2);
+      my @nmb = ( @o, $m1, $m2 );
+      my @lr = $lamp == 0 ? ( \@nma, \@nmb ) : ( \@nmb, \@nma );
+      my $d = $lamp == 0 ? "$m1,$m2 -> " : "<- $m1, $m2";
+      my $sp = max(@speed{$m1,$m2});
+      push @moves, [ @lr, 1-$lamp, [ $d, $hist ], $time+$sp ];
+    }
+
+    my @nma = remove(\@m, $m1);
+    my @nmb = ( @o, $m1 );
+    my @lr = $lamp == 0 ? ( \@nma, \@nmb ) : ( \@nmb, \@nma );
+    my $d = $lamp == 0 ? "$m1 -> " : "<- $m1";
+    push @moves, [ @lr, 1-$lamp, [ $d, $hist ], $time+$speed{$m1} ];
+  }
+
+  return @moves;
+}
+
+sub max {
+    my $max = shift;
+    $max = $max > $_ ? $max : $_ for @_;
+    return $max;
+}
+
+sub str {
+  my ($node) = @_;
+  my ($lt, $rt, $lamp, $hist, $time) = @$node;
+  return join "-", join("",sort @$lt), join("", sort @$rt), $lamp;
+}
+
+sub remove {
+    my ($a, @rest) = @_;
+    my %h = map { $_ => 1 } @$a;
+    delete $h{$_} for @rest;
+    return keys %h;
+}
+
