@@ -1,0 +1,34 @@
+#!/usr/bin/perl
+
+my $N = shift // 4;
+
+my @n = (0) x ($N-1);
+
+while (1) {
+  my @C = n_to_composition(@n);
+  print join("+", @C), " = $N\n";
+  exit unless increment_n(\@n);
+}
+
+sub n_to_composition {
+  my (@bits) = @_;
+  my @C = (1);
+  for my $bit (@bits) {
+    if ($bit == 0) {
+      $C[-1]++;
+    } else {
+      push @C, 1;
+    }
+  }
+  return @C;
+}
+
+sub increment_n {
+  my ($n) = @_;
+  my $i;
+  for ($i = $#$n; $i >= 0; $i--) {
+    if ($n->[$i] == 0) { $n->[$i] = 1; last }
+    else { $n->[$i] = 0 }
+  }
+  return $i >= 0;
+}
