@@ -1,4 +1,4 @@
-package Permutations;
+package Iterator::Permutations;
 
 use Carp qw(confess croak);
 use strict;
