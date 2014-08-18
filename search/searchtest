@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+
+use Search;
+
+# Typical node:
+# [ target sum, used, remaining pool ]
+my $S = Searcher->new({ children => sub {
+                          my ($node) = @_;
+                          my ($target, $used, $pool) = @$node;
+                          return if $target < 0 || @$pool == 0;
+                          my ($n, @new_pool) = @$pool;
+                          return ([ $target - $n, [ @$used, $n ], \@new_pool ],
+                                  [ $target,      $used,          \@new_pool ]);
+                        },
+                        winner => sub {
+                          my ($node) = @_;
+                          my ($target, $used, $pool) = @$node;
+                          $target == 0 && @$pool == 0;
+                        },
+                        to_str => sub {
+                          my ($node) = @_;
+                          my ($target, $used, $pool) = @$node;
+                          return "(target=$target used(@$used) pool(@$pool))";
+                        },
+                       });
+
+my $search = Search->new_search($S, [[ 17, [], [1..10] ]], { DFS => 0, trace => 0 });
+
+while (my $win = $search->next ) {
+  print "@{$win->[1]}\n";
+}
