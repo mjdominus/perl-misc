@@ -1,0 +1,171 @@
+#!/usr/bin/perl
+
+use Search;
+use strict;
+
+# search should color regions one at a time
+# A: add an entire region of a new color; 
+#   the new region must contact all the older regions
+#   and must be connected
+# B: generate an new regions satisfying A
+
+#
+# How to represent a cube?
+# An N-cube is an array of 2^N elements, either '?' or letters
+#   ? are unfilled; letters are colored
+# The element with coordinates [a, b, c, d] is stored at index [8d+4c+2b+a]
+
+# B can go through the unfilled spaces, in each case deciding whether
+# or not to include the current unfilled space in the new region
+# current node contains:
+#  coloring of cube
+#  name of current region being constructed
+#  base point of current region
+#  hashset of points of current region not yet reached by flood fill from current region
+#  hasset of points of current region reached by flood fill from current region
+#  (count of thise points?)
+#  hashset of regions not yet contacted by current region
+
+# Number of dimensions
+my $N = 3;
+
+sub region_is_good {
+  my ($node) = @_;
+  my ($cube, $prev_regions, $reg, $empty, $flooded, $unflooded) = @$node;
+  return unless @$empty == 0; # must have finished deciding what to do with all empty cells
+  return unless %$flooded; # there must be at least one cell in the new region!
+  return if %$unflooded;  # some part of the new region is disconnected; it fails immediately
+
+  my %adjacent_regions;
+  for my $point (keys %$flooded) {
+    for my $neighbor (neighbors($point)) {
+      $adjacent_regions{$cube->[$neighbor]} = 1;
+    }
+  }
+  delete $adjacent_regions{$reg}; # don't care if it is adjacent to itself
+  delete $adjacent_regions{"?"};  # don't care if it is adjacent to the unassigned territory
+  return keys(%adjacent_regions) == @$prev_regions; # number of adjacent regions is the expected number
+}
+
+sub extend_region {
+  my ($node) = @_;
+  my ($cube, $prev_reg, $reg, $empty, $flooded, $unflooded) = @$node;
+  return unless @$empty;
+  my @children;
+  my ($next_cell, @empty) = @$empty;
+  my (%unflooded, %flooded);
+  if (%$flooded == 0) { # nothing is flooded yet, this is the first cell in the region, so flood it
+    %flooded = ($next_cell => 1);
+    %unflooded = ();
+  } else { # otherwise add the next cell to the list of cells that need to be eventually flooded
+    %unflooded = (%$unflooded, $next_cell => 1);
+    %flooded = %$flooded;
+  }
+
+  # always add a new node formed by *not* adding the current empty cell to the new region
+  push @children, [ $cube, $prev_reg, $reg, \@empty, $flooded, $unflooded ];
+
+  # also extend the current region by adding the next cell to it
+  my @new_cube = @$cube;
+  $new_cube[$next_cell] = $reg;
+  floodfill(\@new_cube, $reg, \%flooded, \%unflooded);
+  push @children, [ \@new_cube, $prev_reg, $reg, \@empty, \%flooded, \%unflooded ];
+  return @children;
+}
+
+# modifies $filled and $unfilled in place
+sub floodfill {
+  my ($cube, $reg, $filled, $unfilled) = @_;
+
+  my $N_flooded;
+  do {
+    # try to flood some unflooded points
+    $N_flooded = 0;
+    for my $point (keys %$unfilled) {
+      # If it has a flooded neighbor, flood it
+      if (find_neighbor($point, sub { $filled->{$_[0]} })) {
+        delete $unfilled->{$point};
+        $filled->{$point} = 1;
+        $N_flooded++;
+      }
+    }
+  } while $N_flooded > 0;
+}
+
+# given a point and a predicate, try to find a neighbor of the point
+# that satisfies the predicate; return the neighbor's coordinates if there is one
+sub find_neighbor {
+  my ($point, $pred) = @_;
+  for my $d (0 .. $N-1) {
+    my $neighbor = neighbor($point, $d);
+    return wantarray ? ($neighbor, $d) : $neighbor if $pred->($neighbor);
+  }
+  return;
+}
+
+# coordinate of neighbor of point in $d direction
+sub neighbor {
+  my ($point, $d) = @_;
+  return $point ^ (1 << $d);
+}
+
+# all the neighbors of this point
+sub neighbors {
+  my ($point) = @_;
+  my @N = map neighbor($point, $_), 0 .. $N-1;
+  return @N;
+}
+
+sub empty_cells {
+  my ($cube) = @_;
+  my @unfilled = grep $cube->[$_] eq '?', 0 .. $#$cube;
+  return \@unfilled;
+}
+
+# return a search that generates every possible way of adding a new
+# region named $reg to the existing cube
+sub add_region {
+  my ($cube, $prev_reg, $reg) = @_;
+  my $empty = empty_cells($cube);
+  die "no empty cells in add_region()!\n" unless @$empty;
+  my %flooded = ();
+  my %unflooded = ();
+
+  my $init_node = [ $cube,
+                    $prev_reg,
+                    $reg,
+                    $empty,
+                    \%flooded,
+                    \%unflooded,
+                   ];
+
+  my $gen_new_region = Searcher->new({ children => \&extend_region,
+                                       winner => \&region_is_good,
+                                       to_str => sub { },
+                                     });
+
+  my $search = Search->new_search($gen_new_region,
+                                  [ $init_node ],
+                                  { DFS => 1, trace => 0 },
+                                 );
+
+  return $search;
+}
+
+# only works for 3-dimensional cube
+sub cube {
+  my ($cube) = @_;
+  my @c = @$cube;
+  return "  $c[0]$c[1]  $c[4]$c[5]\n  $c[2]$c[3]  $c[6]$c[7]\n\n";
+}
+
+#
+# AA ??
+# AB ?B
+my $init_cube = [ qw(A A B B ? ? ? ? ) ];
+my $s = add_region($init_cube, ["A", "B"], "C");
+
+while (my $with_region_c = $s->next()) {
+  print(cube($with_region_c->[0]));
+}
+
