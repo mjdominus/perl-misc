@@ -27,7 +27,7 @@ use strict;
 #  hashset of regions not yet contacted by current region
 
 # Number of dimensions
-my $N = 3;
+my $N = shift() // 3;
 
 sub region_is_good {
   my ($node) = @_;
@@ -127,7 +127,7 @@ sub empty_cells {
 sub add_region {
   my ($cube, $prev_reg, $reg) = @_;
   my $empty = empty_cells($cube);
-  die "no empty cells in add_region()!\n" unless @$empty;
+#  die "no empty cells in add_region()!\n" unless @$empty;
   my %flooded = ();
   my %unflooded = ();
 
@@ -159,13 +159,80 @@ sub cube {
   return "  $c[0]$c[1]  $c[4]$c[5]\n  $c[2]$c[3]  $c[6]$c[7]\n\n";
 }
 
+# return a search that adds regions to a cube one at a time and emits the
+# ones that solve Keane's problem
+#
+# nodes contain:
+#   cube so far
+#   list of regions already allocated
+#   name of next region
+
+sub print_node {
+  my ($cube) = $_[0][0];
+  print cube($cube);
+}
+
+
+sub keane {
+  my ($init_cube) = @_;
+  $init_cube = [ ("?") x (2 ** $N) ] unless defined $init_cube;  # all empty
+  my @used_regions = do {
+    my %used_letters;
+    for my $c ( @$init_cube ) { $used_letters{$c} = 1 }
+    delete $used_letters{"?"};
+    sort keys %used_letters;
+  };
+  my $next_region = next_region_name(@used_regions);
+  my $init_node = [ $init_cube, \@used_regions, $next_region ];
+  my $keane_search = Searcher->new({ children => \&add_another_region,
+                                     winner => \&cube_is_full,
+                                     to_str => \&print_node,
+                                   });
+  my $search = Search->new_search($keane_search, [ $init_node ], { DFS => 0, trace => 1 });
+  return $search;
+}
+
+sub add_another_region {
+  my ($node) = @_;
+  my ($cube, $prev_regions, $next_region) = @$node;
+  my $region_adder = add_region(@$node);
+  my @children;
+  while (my $winner = $region_adder->next()) {
+    my ($new_cube, $prev_reg, $reg) = @$winner;
+    my @regions = (@$prev_reg, $reg);
+    my $next_reg = next_region_name(@regions);
+    push @children, [$new_cube, \@regions, $next_reg];
+  }
+  return @children;
+}
+
+sub next_region_name {
+  my @r = @_;
+  return "A" if @r == 0;
+  my $a = $r[-1];
+  $a++;
+  return $a;
+}
+
+sub cube_is_full {
+  my ($node) = @_;
+  my ($cube, $prev_regions, $next_region) = @$node;
+  my $empty = empty_cells($cube);
+  @$empty == 0;
+}
+
 #
 # AA ??
 # AB ?B
-my $init_cube = [ qw(A A B B ? ? ? ? ) ];
-my $s = add_region($init_cube, ["A", "B"], "C");
+#my $init_cube = [ qw(A A B B ? ? ? ? ) ];
+my $s = keane();
 
-while (my $with_region_c = $s->next()) {
-  print(cube($with_region_c->[0]));
+my $best_so_far = 0;
+while (my $win = $s->next()) {
+  my $n_regions = @{$win->[1]};
+  if ($n_regions >= $best_so_far) {
+    print "W I N N E R: \n", cube($win->[0]);
+    $best_so_far = $n_regions;
+  }
 }
 
