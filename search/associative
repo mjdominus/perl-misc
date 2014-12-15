@@ -1,0 +1,121 @@
+#!/usr/bin/perl
+#
+# optable:
+#  [ \@rows,   # partial cayley table
+#    \%element_to_index_map, # map element names to indices for @rows
+#    $still_unfilled, # n unfilled slots in cayley table
+#  ]
+#
+
+use Search;
+my $S = Searcher->new({ children => \&children,
+                        winner => \&winner,
+                        to_str => \&to_str,
+                      });
+
+my $init_op = [[ '0',   undef, '2',   undef ],
+               [ undef, undef,  undef,  '0' ],
+               [ '2',   undef,  undef,  undef ],
+               [ undef,   '0', undef,   '3' ],
+              ];
+
+my $init_node = [ $init_op, { 0 => 0, 1 => 1, 2 => 2, 3 => 3 }, 10 ];
+
+my $search = Search->new_search($S, [$init_node], { DFS => 1, trace => 0 });
+
+sub to_str {
+  my ($node) = @_;
+  my ($ct) =  @$node;
+  my @lines;
+  for my $r (0 .. $#$ct) {
+    my @line;
+    for my $c (0 .. $#$ct) {
+      push @line, $ct->[$r][$c] // "?";
+    }
+    push @lines, join(" " => "@line");
+  }
+  return join "\n" => @lines, "", "";
+}
+
+sub children {
+  my ($node) = @_;
+  my ($op, $i, $N) = @$node;
+  return if $N == 0;
+  my $next_unfilled = next_unfilled($op)
+    or die "N=$N but no next unfilled?!\n";
+  my @children;
+  for my $e (keys %$i) {
+    my $new_op = new_op_table($op, $i, $N, $next_unfilled, $e);
+    push @children, [ $new_op, $i, $N-1 ]
+      if still_associative($new_op, $i, $N, $next_unfilled);
+  }
+  return @children;
+}
+
+sub winner {
+  my ($node) = @_;
+  my ($op, $i, $N) = @$node;
+  return $N == 0;
+}
+
+sub next_unfilled {
+  my ($op) = @_;
+  for my $i (0 .. $#$op) {
+    for my $j (0 .. $#$op) {
+      return [$i, $j] if not defined $op->[$i][$j];
+    }
+  }
+  return;
+}
+
+# calculate index of a + b
+sub make_opf {
+  my ($op, $i) = @_;
+  sub {
+    my ($a, $b) = @_;
+    return unless defined $a and defined $b;
+    my $s = $op->[$a][$b];
+    return unless defined $s;
+    return $i->{$s};
+  };
+}
+
+# check (a + b) + c = a + (b + c)
+sub assoc_check {
+  my ($op, $i, $a, $b, $c) = @_;
+  my $opf = make_opf($op, $i);
+  my $L = $opf->($opf->($a, $b), $c);
+  return 1 if not defined $L;
+  my $R = $opf->($a, $opf->($b, $c));
+  return 1 if not defined $R;
+#  warn "($a + $b) + $c = $L; $a + ($b + $c) = $R\n" unless $L eq $R;
+  return $L eq $R;
+}
+
+sub still_associative {
+  my ($op, $i, $N, $next_unfilled) = @_;
+  my ($a, $b) = @$next_unfilled;
+  for my $c (values %$i) {
+    # check (a + b) + c = a + (b + c)
+    return unless assoc_check($op, $i, $a, $b, $c);
+    # check (c + a) + b = c + (a + b)
+    return unless assoc_check($op, $i, $c, $a, $b);
+  }
+  return 1;
+}
+
+sub new_op_table {
+  my ($op, $i, $N, $next_unfilled, $e) = @_;
+  my ($a, $b) = @$next_unfilled;
+  my @new_op = @$op;
+  $new_op[$a] = [ @{$new_op[$a]} ];
+  $new_op[$a][$b] = $e;
+  return \@new_op;
+}
+
+
+while (my $win = $search->next ) {
+  print "WINNER:\n", to_str($win);
+}
+
+
