@@ -2,6 +2,7 @@
 
 use Search;
 use strict;
+$|=1;
 
 # search should color regions one at a time
 # A: add an entire region of a new color; 
@@ -171,8 +172,7 @@ sub cube {
 #   name of next region
 
 sub print_node {
-  my ($cube) = $_[0][0];
-  print cube($cube);
+  cube($_[0][0]);
 }
 
 
