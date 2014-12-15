@@ -126,15 +126,18 @@ sub empty_cells {
 # region named $reg to the existing cube
 sub add_region {
   my ($cube, $prev_reg, $reg) = @_;
-  my $empty = empty_cells($cube);
-#  die "no empty cells in add_region()!\n" unless @$empty;
-  my %flooded = ();
+  my ($next_empty, @empty) = @{empty_cells($cube)};
+  die "no empty cells in add_region()!\n" unless defined $next_empty;
+  my @cube = @$cube;
+  $cube[$next_empty] = $reg;
+
+  my %flooded = ($next_empty => 1);
   my %unflooded = ();
 
-  my $init_node = [ $cube,
+  my $init_node = [ \@cube,
                     $prev_reg,
                     $reg,
-                    $empty,
+                    \@empty,
                     \%flooded,
                     \%unflooded,
                    ];
@@ -192,13 +195,19 @@ sub keane {
   return $search;
 }
 
+# given a cube with some allocated regions, add a new connected region
+# that touches all the existing regions, in every possible way
 sub add_another_region {
   my ($node) = @_;
   my ($cube, $prev_regions, $next_region) = @$node;
+  { my $empty_cells = empty_cells($cube);
+    return if @$empty_cells == 0; # can't add any more regions!
+  }
   my $region_adder = add_region(@$node);
   my @children;
   while (my $winner = $region_adder->next()) {
     my ($new_cube, $prev_reg, $reg) = @$winner;
+    next unless grep $_ eq $reg, @$new_cube; # discard cubes that 'add' an empty region
     my @regions = (@$prev_reg, $reg);
     my $next_reg = next_region_name(@regions);
     push @children, [$new_cube, \@regions, $next_reg];
