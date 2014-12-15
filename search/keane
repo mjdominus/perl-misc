@@ -83,7 +83,7 @@ sub floodfill {
     $N_flooded = 0;
     for my $point (keys %$unfilled) {
       # If it has a flooded neighbor, flood it
-      if (find_neighbor($point, sub { $filled->{$_[0]} })) {
+      if (my @r = find_neighbor($point, sub { $filled->{$_[0]} })) {
         delete $unfilled->{$point};
         $filled->{$point} = 1;
         $N_flooded++;
