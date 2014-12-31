@@ -1,0 +1,102 @@
+
+use SearchLazy;
+use Search;
+
+$|=1;
+
+use Getopt::Std;
+my %opt = (d => "/usr/share/dict/words", t => 0);
+getopts('t:d:', \%opt) or usage();
+my $dict = $opt{d};
+my ($src, $dst) = @ARGV;
+defined($dst) or usage();
+my $len = length($src);
+$len == length($dst) or die "Length mistmatch\n";
+
+# Load dictionary
+my %dict;
+my %neighbors;
+{ open my ($dh) , "<", $dict or die "$dict: $!";
+  my %by_pat;
+  while (<$dh>) {
+    chomp;
+    next unless length($_) == $len;
+    next if /[^a-zA-Z]/;
+    my $w = lc $_;
+    $dict{$w} = 1;
+    for my $pat (patterns($w)) {
+      push @{$by_pat{$pat}}, $_;
+    }
+  }
+  my $neighbors = sub {
+    my ($word) = @_;
+    my %n;
+    for my $pat (patterns($word)) {
+      for my $w (@{$by_pat{$pat}}) {
+        $n{$w} = 1;
+      }
+    }
+    return keys %n;
+  };
+  for my $word (keys %dict) {
+    $neighbors{$word} = [ $neighbors->($word) ];
+  }
+}
+
+sub patterns {
+  my ($word) = @_;
+  my @pats;
+  for my $pos (0 .. $len-1) {
+    my $pat = $word;
+    substr($pat, $pos, 1, "*");
+    push @pats, $pat;
+  }
+  return @pats;
+}
+
+# Typical node:
+# [ $cur, @@path, %used, $pathlen ];
+my $root = [ $src, [$src], { $src => 1 }, 1 ];
+my $min_path = 20;
+
+my $S = Searcher->new({ children => sub {
+                          my ($node) = @_;
+                          my ($word, $hist, $used, $pathlen) = @$node;
+                          return if $pathlen >= $min_path;
+                          map [$_, [$_, $hist], { %$used, $_ => 1 }, $pathlen+1 ],
+                            grep !$used->{$_}, @{$neighbors{$word}};
+                        },
+                        winner => sub {
+                          my ($node) = @_;
+                          my ($word, $hist, $used, $pathlen) = @$node;
+                          $word eq $dst && $pathlen <= $min_path;
+                        },
+                        to_str => sub {
+                          my ($node) = @_;
+                          my ($word, $hist, $used, $pathlen) = @$node;
+                          return " ... " . join " ", hist_to_list($hist);
+                        },
+                       });
+
+sub hist_to_list {
+  my ($h) = @_;
+  my @w;
+  while (defined $h) {
+    unshift @w, $h->[0];
+    $h = $h->[1];
+  }
+  return @w;
+}
+
+sub min {
+  my $min = shift;
+  for (@_) { $min = $min > $_ ? $_ : $min }
+  return $min;
+}
+
+my $search = SearchLazy->new_search($S, [$root], { DFS => 1, trace => $opt{t} });
+
+while (my $win = $search->next ) {
+  print "*** ($win->[3]) ", join(" => ", hist_to_list($win->[1])), "\n";;
+  $min_path = min($min_path, $win->[3]);
+}
