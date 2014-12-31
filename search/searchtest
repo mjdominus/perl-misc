@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+use SearchLazy;
 use Search;
 
 # Typical node:
@@ -24,7 +25,7 @@ my $S = Searcher->new({ children => sub {
                         },
                        });
 
-my $search = Search->new_search($S, [[ 17, [], [1..10] ]], { DFS => 0, trace => 0 });
+my $search = SearchLazy->new_search($S, [[ 17, [], [1..10] ]], { DFS => 0, trace => 0 });
 
 while (my $win = $search->next ) {
   print "@{$win->[1]}\n";
