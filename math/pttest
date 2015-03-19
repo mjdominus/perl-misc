@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+
+while (<>) {
+    my (@a) = split;
+    for my $i (0 .. $#a) {
+	my $s = 	$a[$i]*$a[$i];
+	my $t = $a[($i+1)%@a]*$a[($i+1)%@a];
+	my $u = sqrt($s+$t);
+	printf "%d^2 + %d^2 = %f^2\n", $s, $t, $u;
+    }
+}
+

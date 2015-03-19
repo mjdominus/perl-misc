@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+for my $m (1 .. 200) {
+  for my $n ($m+1 .. 200) {
+    my $a = $n*$n-$m*$m;
+    my $b = 2 * $n * $m;
+    my $c = $n*$n+$m*$m;
+    $trip{$a}{$b} = 1;
+    $trip{$b}{$a} = 1;
+  }
+}
+
+for my $a (keys %trip) {
+  for my $b (keys %{$trip{$a}}) {
+    for my $c (keys %{$trip{$b}}) {
+	next if $c == $a;
+      for my $d (keys %{$trip{$c}}) {
+	  next if $d == $b;
+	print "$a $b $c $d\n" if $trip{$d}{$a};
+      }
+    }
+  }
+}
